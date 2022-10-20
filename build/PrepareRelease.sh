@@ -93,8 +93,6 @@ nextVersionInfo="${versionNumbersArray[0]}.${versionNumbersArray[1]}.$nextPatchN
 echo "Set new version $nextVersionInfo"
 echo -n "$nextVersionInfo" > $VERSION_MASTER_PATH
 
-exit 
-
 echo "Commit the changed version master"
 git commit -a -m "Update version number master to $nextVersionInfo"
 if [ "$?" != "0" ]; then
