@@ -37,7 +37,7 @@ jobs:
     if: contains(github.ref, 'release')
     steps: 
     - uses: actions/checkout@v2 
-      name: Get Release version 
+    - name: Get Release version 
       run: |
             version=$(cat ./VersionMaster.txt)
             echo "GOBUILDHELPERS_VERSION=$version"
