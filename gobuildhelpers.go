@@ -404,3 +404,14 @@ func listContains(list []string, value string) bool {
 
 	return false
 }
+
+func EnsureDirectoryExists(path string) error {
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		errCreate := os.Mkdir(path, 0755)
+		if errCreate != nil {
+			return errCreate
+		}
+	}
+
+	return nil
+}
