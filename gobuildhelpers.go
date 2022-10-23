@@ -49,7 +49,7 @@ func ConvertTestResults(logPath, xmlResult, workDir string) error {
 	}
 	fmt.Println(fmt.Sprintf("Convert the test results %s to %s", logPath, xmlResult))
 	cmd := exec.Command("go", "run", "github.com/tebeka/go2xunit", "-input", logPath, "-output", xmlResult)
-	cmd.Dir = filepath.Join(workDir, "build")
+	cmd.Dir = workDir
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	errConvert := cmd.Run()
@@ -395,16 +395,9 @@ func FindPackagesToTest(sourceDir string) ([]string, error) {
 	return packagesToTest, nil
 }
 
-func listContains(list []string, value string) bool {
-	for _, item := range list {
-		if item == value {
-			return true
-		}
-	}
-
-	return false
-}
-
+// Checks if the given directory path exists, and creates it if not
+// - path: The directory that should exist
+// It returns any error that may occor
 func EnsureDirectoryExists(path string) error {
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		errCreate := os.Mkdir(path, 0755)
@@ -414,4 +407,14 @@ func EnsureDirectoryExists(path string) error {
 	}
 
 	return nil
+}
+
+func listContains(list []string, value string) bool {
+	for _, item := range list {
+		if item == value {
+			return true
+		}
+	}
+
+	return false
 }
