@@ -8,6 +8,7 @@ package gobuildhelpers
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -133,6 +134,10 @@ func TestZipFolders(t *testing.T) {
 		t.Errorf("The path '%s' was not created as expected", outFile)
 	}
 
+	if !PathExists(outFile) {
+		t.Errorf("The zip file '%s' does not exit", outFile)
+	}
+
 	if errRem := RemovePaths([]string{outFile}); errRem != nil {
 		t.Errorf("Got error '%s' but expected none", errRem.Error())
 	}
@@ -197,10 +202,11 @@ func TestFindFoldersToTest(t *testing.T) {
 	if len(dirs) != 0 {
 		t.Errorf("Expected '0' folders to test, but got '%d'", len(dirs))
 	}
+
 }
 
 func TestBuild(t *testing.T) {
-	RemovePaths([]string{"tmp"})
+	RemovePaths([]string{baseDir})
 
 	dirs, err := FindPackagesToBuild(filepath.Join(".", "testdata", "testProject"))
 	if err != nil {
@@ -210,26 +216,66 @@ func TestBuild(t *testing.T) {
 	if len(dirs) != 1 {
 		t.Errorf("Expected '1' folder to build, but got '%d'", len(dirs))
 	}
-
-	errBuild := BuildFolders(dirs, "tmp", "")
+	workDir, errWorkDir := os.Getwd()
+	if errWorkDir != nil {
+		t.Errorf("Got error '%s', but expected none", errWorkDir.Error())
+	}
+	outDir := filepath.Join(workDir, baseDir)
+	errBuild := BuildFolders(dirs, outDir, "")
 	if errBuild != nil {
 		t.Errorf("Got error '%s', but expected none", errBuild.Error())
 	}
 
-	errBuild = BuildFolders(dirs, "tmp", "a=123")
+	binOutPath := filepath.Join(workDir, baseDir, filepath.Base(dirs[0]))
+	if runtime.GOOS == "windows" {
+		binOutPath = fmt.Sprintf("%s.exe", binOutPath)
+	}
+
+	if !PathExists(binOutPath) {
+		t.Errorf("Executable '%s', was not created", binOutPath)
+	}
+
+	cmd := exec.Command(binOutPath)
+	outPutBytes, err := cmd.Output()
+	if err != nil {
+		t.Errorf("Got error '%s', but expected none", err.Error())
+	}
+
+	if strings.TrimSpace(string(outPutBytes)) != "The result is '3'" {
+		t.Errorf("The executable does not return the expected string, it returns '%s'", strings.TrimSpace(string(outPutBytes)))
+	}
+
+	errBuild = BuildFolders(dirs, baseDir, "a=123")
 	if errBuild != nil {
 		t.Errorf("Got error '%s', but expected none", errBuild.Error())
 	}
 
-	errBuild = BuildFolders([]string{filepath.Join(".", "testdata", "no.go")}, "tmp", "")
+	errBuild = BuildFolders([]string{filepath.Join(".", "testdata", "no.go")}, baseDir, "")
 	if errBuild == nil {
 		t.Errorf("Got no error, but expected one")
 	}
 }
 
+func TestPathExists(t *testing.T) {
+
+	workDir, errWorkDir := os.Getwd()
+	if errWorkDir != nil {
+		t.Errorf("Got error '%s', but expected none", errWorkDir.Error())
+	}
+
+	notExist := filepath.Join(".", baseDir, "not-existing-dir", "not-existing-file")
+	if PathExists(notExist) {
+		t.Errorf("Found file '%s', but should not", notExist)
+	}
+
+	if !PathExists(workDir) {
+		t.Errorf("Path '%s', does not exist", workDir)
+	}
+}
+
 func TestTestExecution(t *testing.T) {
 
-	RemovePaths([]string{"tmp"})
+	RemovePaths([]string{baseDir})
 
 	dirs, err := FindPackagesToTest(filepath.Join(".", "testdata", "testProject"))
 	if err != nil {
@@ -240,19 +286,24 @@ func TestTestExecution(t *testing.T) {
 		t.Errorf("Expected '1' folder to build, but got '%d'", len(dirs))
 	}
 
-	errTests := RunTestFolders(dirs, "tmp", "TestResult.log")
+	errTests := RunTestFolders(dirs, baseDir, "TestResult.log")
 	if len(errTests) != 0 {
 		t.Errorf("Got error '%s', but expected none", errTests[0].Error())
 	}
 
-	errTests = RunTestFolders([]string{filepath.Join(".", "testdata", "no.go")}, "tmp", "TestResult.log")
+	testLog := filepath.Join(".", baseDir, "TestResult.log")
+	if !PathExists(testLog) {
+		t.Errorf("Test output file '%s' does not exist", testLog)
+	}
+
+	errTests = RunTestFolders([]string{filepath.Join(".", "testdata", "no.go")}, baseDir, "TestResult.log")
 	if len(errTests) != 1 {
 		t.Errorf("Got no error, but expected one")
 	}
 }
 
 func TestTestCoverage(t *testing.T) {
-	RemovePaths([]string{"tmp"})
+	RemovePaths([]string{baseDir})
 
 	dirs, err := FindPackagesToTest(filepath.Join(".", "testdata", "testProject"))
 	if err != nil {
@@ -263,19 +314,24 @@ func TestTestCoverage(t *testing.T) {
 		t.Errorf("Expected '1' folder to build, but got '%d'", len(dirs))
 	}
 
-	errTests := CoverTestFolders(dirs, "tmp", "TestResult.log")
+	errTests := CoverTestFolders(dirs, baseDir, "TestCover.log")
 	if errTests != nil {
 		t.Errorf("Got error '%s', but expected none", errTests.Error())
 	}
 
-	errTests = CoverTestFolders([]string{filepath.Join(".", "testdata", "no.go")}, "tmp", "TestResult.log")
+	testLog := filepath.Join(".", baseDir, "TestCover.log")
+	if !PathExists(testLog) {
+		t.Errorf("Test output file '%s' does not exist", testLog)
+	}
+
+	errTests = CoverTestFolders([]string{filepath.Join(".", "testdata", "no.go")}, baseDir, "TestCover.log")
 	if errTests == nil {
 		t.Errorf("Got no error, but expected one")
 	}
 }
 
 func TestTestCovertion(t *testing.T) {
-	RemovePaths([]string{"tmp"})
+	RemovePaths([]string{baseDir})
 
 	testConvWorkDir := filepath.Join(".", "testdata", "testResultConverter")
 	InstallTestConverter(testConvWorkDir)
@@ -289,17 +345,21 @@ func TestTestCovertion(t *testing.T) {
 		t.Errorf("Expected '1' folder to build, but got '%d'", len(dirs))
 	}
 
-	errTests := RunTestFolders(dirs, filepath.Join(".", "tmp"), "TestResult.log")
+	errTests := RunTestFolders(dirs, filepath.Join(".", baseDir), "TestResult.log")
 	if len(errTests) != 0 {
 		t.Errorf("Got error '%s', but expected none", errTests[0].Error())
 	}
 
-	errConv := ConvertTestResults(filepath.Join("..", "..", "tmp", "TestResult.log"), filepath.Join("..", "..", "tmp", "TestResult.xml"), testConvWorkDir)
+	errConv := ConvertTestResults(filepath.Join("..", "..", baseDir, "TestResult.log"), filepath.Join("..", "..", baseDir, "TestResult.xml"), testConvWorkDir)
 	if errConv != nil {
 		t.Errorf("Got error '%s', but expected none", err.Error())
 	}
 
-	errConv = ConvertTestResults(filepath.Join(".", "tmp", "TestResult.log"), filepath.Join("..", "..", "tmp", "TestResult.xml"), testConvWorkDir)
+	if !PathExists(filepath.Join(".", baseDir, "TestResult.xml")) {
+		t.Errorf("The converted file '%s' does not exist", filepath.Join(".", baseDir, "TestResult.xml"))
+	}
+
+	errConv = ConvertTestResults(filepath.Join(".", baseDir, "TestResult.log"), filepath.Join("..", "..", baseDir, "TestResult.xml"), testConvWorkDir)
 	if errConv == nil {
 		t.Errorf("Got no error, but expected one")
 	}

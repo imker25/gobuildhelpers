@@ -439,6 +439,18 @@ func ReadOSDistribution() (string, error) {
 	return ret, nil
 }
 
+// PathExists - check if a path exists
+// - path: The file od folder path to check
+// It returns true if a path exists, and false if not
+func PathExists(path string) bool {
+	_, err := os.Stat(path)
+	if err != nil {
+		return !os.IsNotExist(err)
+	}
+
+	return true
+}
+
 func listContains(list []string, value string) bool {
 	for _, item := range list {
 		if item == value {
