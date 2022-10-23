@@ -11,6 +11,7 @@ import (
 	"archive/zip"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -18,6 +19,21 @@ import (
 	"strconv"
 	"strings"
 )
+
+type OsNotSupportedByThisMethod struct {
+	err    string
+	os     string
+	method string
+}
+
+func (e *OsNotSupportedByThisMethod) Error() string { // Implement the Error Interface for the OsNotSupportedByThisMethod struct
+	return fmt.Sprintf("Error: %s", e.err)
+}
+
+// NewOsNotSupportedByThisMethod- Get a new OsNotSupportedByThisMethod struct
+func NewOsNotSupportedByThisMethod(os, method string) *OsNotSupportedByThisMethod {
+	return &OsNotSupportedByThisMethod{fmt.Sprintf("The OS \"%s\" is not supported by the \"%s\" method", os, method), os, method}
+}
 
 // RemovePaths - Deletes the given paths recursively
 // - paths: The list of directory or file path to delete
@@ -41,12 +57,10 @@ func RemovePaths(paths []string) error {
 // It returns any error that may occur or nil
 func ConvertTestResults(logPath, xmlResult, workDir string) error {
 	xmlOutDir := filepath.Dir(xmlResult)
-	if _, err := os.Stat(xmlOutDir); os.IsNotExist(err) {
-		errCreate := os.Mkdir(xmlOutDir, 0755)
-		if errCreate != nil {
-			return errCreate
-		}
+	if err := EnsureDirectoryExists(xmlOutDir); err != nil {
+		return err
 	}
+
 	fmt.Println(fmt.Sprintf("Convert the test results %s to %s", logPath, xmlResult))
 	cmd := exec.Command("go", "run", "github.com/tebeka/go2xunit", "-input", logPath, "-output", xmlResult)
 	cmd.Dir = workDir
@@ -219,11 +233,8 @@ func GetGitHeight(versionFile, workDir string) (int, error) {
 // - logFileName: Name of the log file
 // It returns any error that may occur or nil
 func CoverTestFolders(packagesToCover []string, logDir, logFileName string) error {
-	if _, err := os.Stat(logDir); os.IsNotExist(err) {
-		errCreate := os.Mkdir(logDir, 0755)
-		if errCreate != nil {
-			return errCreate
-		}
+	if err := EnsureDirectoryExists(logDir); err != nil {
+		return err
 	}
 
 	logPath := filepath.Join(logDir, logFileName)
@@ -262,11 +273,8 @@ func CoverTestFolders(packagesToCover []string, logDir, logFileName string) erro
 func RunTestFolders(packagesToTest []string, logDir, logFileName string) []error {
 	testErrors := []error{}
 
-	if _, err := os.Stat(logDir); os.IsNotExist(err) {
-		errCreate := os.Mkdir(logDir, 0755)
-		if errCreate != nil {
-			return append(testErrors, errCreate)
-		}
+	if err := EnsureDirectoryExists(logDir); err != nil {
+		return append(testErrors, err)
 	}
 
 	logPath := filepath.Join(logDir, logFileName)
@@ -307,11 +315,8 @@ func RunTestFolders(packagesToTest []string, logDir, logFileName string) []error
 // - ldfFlags: Flags passed to the command via '-ldflags', may be empty
 // It returns any error that may occur or nil
 func BuildFolders(packagesToBuild []string, binDir, ldfFlags string) error {
-	if _, err := os.Stat(binDir); os.IsNotExist(err) {
-		errCreate := os.Mkdir(binDir, 0755)
-		if errCreate != nil {
-			return errCreate
-		}
+	if err := EnsureDirectoryExists(binDir); err != nil {
+		return err
 	}
 
 	for _, packToBuild := range packagesToBuild {
@@ -395,9 +400,9 @@ func FindPackagesToTest(sourceDir string) ([]string, error) {
 	return packagesToTest, nil
 }
 
-// Checks if the given directory path exists, and creates it if not
+// EnsureDirectoryExists - Checks if the given directory path exists, and creates it if not
 // - path: The directory that should exist
-// It returns any error that may occor
+// It returns any error that may occor or nil
 func EnsureDirectoryExists(path string) error {
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		errCreate := os.Mkdir(path, 0755)
@@ -407,6 +412,31 @@ func EnsureDirectoryExists(path string) error {
 	}
 
 	return nil
+}
+
+// ReadOSDistribution - Read the linux distribution name (ID line) from '/etc/os-release'
+// It returns the distribution name and nil
+// In case of error it returns the error and an empty string
+// Attention: This can only work on linux distributions that follow the FHS (Filesystem Hierarchy Standard)
+func ReadOSDistribution() (string, error) {
+	if runtime.GOOS == "windows" || runtime.GOOS == "darwin" {
+		return "", NewOsNotSupportedByThisMethod(runtime.GOOS, "ReadOSDistribution")
+	}
+
+	ret := ""
+	byteContent, err := ioutil.ReadFile("/etc/os-release")
+	if err != nil {
+		return "", err
+	}
+	lines := strings.Split(string(byteContent), "\n")
+
+	for _, line := range lines {
+		if strings.HasPrefix(line, "ID=") {
+			ret = strings.Replace(line, "ID=", "", 1)
+		}
+	}
+
+	return ret, nil
 }
 
 func listContains(list []string, value string) bool {

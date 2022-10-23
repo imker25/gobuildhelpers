@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 )
 
@@ -132,6 +133,15 @@ func TestZipFolders(t *testing.T) {
 		t.Errorf("The path '%s' was not created as expected", outFile)
 	}
 
+	if errRem := RemovePaths([]string{outFile}); errRem != nil {
+		t.Errorf("Got error '%s' but expected none", errRem.Error())
+	}
+
+	err = ZipFolders([]string{mydir1}, filepath.Join(".", "testdata", "testResultConverter", "not-existing-dir", outFile))
+	if err == nil {
+		t.Errorf("Got no error, but expected one")
+	}
+
 	if errRem := RemovePaths([]string{outFile, baseDir}); errRem != nil {
 		t.Errorf("Got error '%s' but expected none", errRem.Error())
 	}
@@ -142,6 +152,11 @@ func TestInstallTestConvert(t *testing.T) {
 	err := InstallTestConverter(filepath.Join(".", "testdata", "testResultConverter"))
 	if err != nil {
 		t.Errorf("Got error '%s' but expected none", err.Error())
+	}
+
+	err = InstallTestConverter(filepath.Join(".", "testdata", "testResultConverter", "not-existing-dir"))
+	if err == nil {
+		t.Errorf("Got no error but expected one")
 	}
 }
 
@@ -288,6 +303,75 @@ func TestTestCovertion(t *testing.T) {
 	if errConv == nil {
 		t.Errorf("Got no error, but expected one")
 	}
+}
+
+func TestReadOSDistribution(t *testing.T) {
+
+	if runtime.GOOS == "linux" {
+		dist, err := ReadOSDistribution()
+		if err != nil {
+			t.Errorf("Got error '%s', but expected none", err.Error())
+		}
+		if dist == "" {
+			t.Errorf("Got an empty string instead of a distribution name")
+		}
+		fmt.Println(fmt.Sprintf("Distribution: '%s'", dist))
+	}
+
+	if runtime.GOOS == "windows" || runtime.GOOS == "darwin" {
+		dist, err := ReadOSDistribution()
+		if dist != "" {
+			t.Errorf("Expected an empty string but got '%s'", dist)
+		}
+		if err == nil {
+			t.Errorf("Got no error but expected one")
+
+			return
+		}
+
+		switch err.(type) {
+		case *OsNotSupportedByThisMethod:
+			fmt.Fprintln(os.Stdout, "OK")
+		default:
+			t.Errorf("Got error '%s' type, but expected '*OsNotSupportedByThisMethod'", err.Error())
+		}
+
+		errMsg := err.Error()
+		if !strings.Contains(errMsg, "ReadOSDistribution") {
+			t.Errorf("Expected '%s' to contain 'ReadOSDistribution'", errMsg)
+		}
+
+		if !strings.Contains(errMsg, runtime.GOOS) {
+			t.Errorf("Expected '%s' to contain '%s'", errMsg, runtime.GOOS)
+		}
+	}
+}
+
+func TestOsNotSupportedByThisMethod(t *testing.T) {
+	os := "myOs"
+	method := "myMethod"
+	err := NewOsNotSupportedByThisMethod(os, method)
+
+	if err.os != os {
+		t.Errorf("NewOsNotSupportedByThisMethod.os is not the expected value '%s, but is '%s'", os, err.os)
+	}
+
+	if err.method != method {
+		t.Errorf("NewOsNotSupportedByThisMethod.method is not the expected value '%s, but is '%s'", method, err.method)
+	}
+
+	if !strings.Contains(err.err, os) {
+		t.Errorf("Error message '%s' does not contain '%s'", err.err, os)
+	}
+
+	if !strings.Contains(err.err, method) {
+		t.Errorf("Error message '%s' does not contain '%s'", err.err, method)
+	}
+
+	if fmt.Sprintf("Error: %s", err.err) != err.Error() {
+		t.Errorf("The error message '%s' is not the expected '%s'", err.Error(), fmt.Sprintf("Error: %s", err.err))
+	}
+
 }
 
 func createTmpDirs() error {
