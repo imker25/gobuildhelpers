@@ -271,6 +271,35 @@ func CoverTestFolders(packagesToCover []string, logDir, logFileName string) erro
 // - logFileName: Name of the log file
 // It returns any error that may occur or an empty list
 func RunTestFolders(packagesToTest []string, logDir, logFileName string) []error {
+	return runTestFoldersEarlyExitPossible(packagesToTest, logDir, logFileName, false)
+}
+
+// RunTestFolders - Runs 'go test -v -race' on linux and 'go test -v' on windows for all given packages to test
+// Any package folder in the list should contain a go package with at least one '*_test.go' file
+// Test execution will stop on first failed test
+// - packagesToTest: List of directory path that contains '*_test.go' files to run
+// - logDir: Path to the directory the log file is crated
+// - logFileName: Name of the log file
+// It returns any error that may occur or nil
+func RunTestFoldersEarlyExit(packagesToTest []string, logDir, logFileName string) error {
+	testErrors := runTestFoldersEarlyExitPossible(packagesToTest, logDir, logFileName, true)
+
+	if len(testErrors) > 0 {
+		return testErrors[0]
+	}
+
+	return nil
+}
+
+// RunTestFolders - Runs 'go test -v -race' on linux and 'go test -v' on windows for all given packages to test
+// Any package folder in the list should contain a go package with at least one '*_test.go' file
+// When earlyExit is false all tests will be executed, even if a error occur in the package before, the next package's tests get executed
+// - packagesToTest: List of directory path that contains '*_test.go' files to run
+// - logDir: Path to the directory the log file is crated
+// - logFileName: Name of the log file
+// - earlyExit: Tell if exit on first error or not
+// It returns any error that may occur or an empty list
+func runTestFoldersEarlyExitPossible(packagesToTest []string, logDir, logFileName string, earlyExit bool) []error {
 	testErrors := []error{}
 
 	if err := EnsureDirectoryExists(logDir); err != nil {
@@ -302,6 +331,9 @@ func RunTestFolders(packagesToTest []string, logDir, logFileName string) []error
 		if errTest != nil {
 			fmt.Fprintln(os.Stderr, fmt.Sprintf("Error: Test of package '%s' failed. %s", packToTest, errTest.Error()))
 			testErrors = append(testErrors, errTest)
+			if earlyExit {
+				return testErrors
+			}
 		}
 	}
 

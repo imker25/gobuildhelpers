@@ -302,6 +302,35 @@ func TestTestExecution(t *testing.T) {
 	}
 }
 
+func TestTestExecutionEarlyExit(t *testing.T) {
+
+	RemovePaths([]string{baseDir})
+
+	dirs, err := FindPackagesToTest(filepath.Join(".", "testdata", "testProject"))
+	if err != nil {
+		t.Errorf("Got error '%s', but expected none", err.Error())
+	}
+
+	if len(dirs) != 1 {
+		t.Errorf("Expected '1' folder to build, but got '%d'", len(dirs))
+	}
+
+	errTests := RunTestFoldersEarlyExit(dirs, baseDir, "TestResult.log")
+	if errTests != nil {
+		t.Errorf("Got error '%s', but expected none", errTests.Error())
+	}
+
+	testLog := filepath.Join(".", baseDir, "TestResult.log")
+	if !PathExists(testLog) {
+		t.Errorf("Test output file '%s' does not exist", testLog)
+	}
+
+	errTests = RunTestFoldersEarlyExit([]string{filepath.Join(".", "testdata", "no.go")}, baseDir, "TestResult.log")
+	if errTests == nil {
+		t.Errorf("Got no error, but expected one")
+	}
+}
+
 func TestTestCoverage(t *testing.T) {
 	RemovePaths([]string{baseDir})
 
