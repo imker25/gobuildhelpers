@@ -68,7 +68,8 @@ func ConvertTestResults(logPath, xmlResult, workDir string) error {
 	cmd.Stderr = os.Stderr
 	errConvert := cmd.Run()
 	if errConvert != nil {
-		fmt.Fprintln(os.Stderr, fmt.Sprintf("Error: Test result conversion failed. %s", errConvert.Error()))
+		errConvert = fmt.Errorf("Error: Test result conversion failed. %w", errConvert)
+		fmt.Fprintln(os.Stderr, errConvert)
 		return errConvert
 	}
 
@@ -255,7 +256,8 @@ func CoverTestFolders(packagesToCover []string, logDir, logFileName string) erro
 		cmd.Stdout = logFile
 		errTest := cmd.Run()
 		if errTest != nil {
-			fmt.Fprintln(os.Stderr, fmt.Sprintf("Error: Coverage measurement of package '%s' failed. %s", packToTest, errTest.Error()))
+			errTest = fmt.Errorf("Error: Coverage measurement of package '%s' failed. %w", packToTest, errTest)
+			fmt.Fprintln(os.Stderr, errTest)
 			return errTest
 		}
 	}
@@ -329,7 +331,8 @@ func runTestFoldersEarlyExitPossible(packagesToTest []string, logDir, logFileNam
 		cmd.Stdout = logFile
 		errTest := cmd.Run()
 		if errTest != nil {
-			fmt.Fprintln(os.Stderr, fmt.Sprintf("Error: Test of package '%s' failed. %s", packToTest, errTest.Error()))
+			errTest = fmt.Errorf("Error: Test of package '%s' failed. %w", packToTest, errTest)
+			fmt.Fprintln(os.Stderr, errTest)
 			testErrors = append(testErrors, errTest)
 			if earlyExit {
 				return testErrors
@@ -371,8 +374,8 @@ func BuildFolders(packagesToBuild []string, binDir, ldfFlags string) error {
 		cmd.Stderr = os.Stderr
 		errBuild := cmd.Run()
 		if errBuild != nil {
-			// fmt.Println(fmt.Sprintf("Error during build of package '%s': %s", packToBuild, errBuild.Error()))
-			fmt.Fprintln(os.Stderr, fmt.Sprintf("Error: Build of package '%s' failed. %s", packToBuild, errBuild.Error()))
+			errBuild = fmt.Errorf("Error: Build of package '%s' failed. %w", packToBuild, errBuild)
+			fmt.Fprintln(os.Stderr, errBuild)
 			return errBuild
 		}
 	}
